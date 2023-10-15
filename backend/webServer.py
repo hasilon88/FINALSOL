@@ -8,6 +8,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.requests import Request
+import random
+import smtplib
+from email.mime.text import MIMEText
 
 app = FastAPI()
 
@@ -41,6 +44,45 @@ app.add_middleware(
 )
 # ---
 
+verification_codes = {}
+
+def generate_verification_code():
+    return str(random.randint(100000, 999999))
+
+def send_email(recipient_email, verification_code):
+    sender_email = "hasilonjr@gmail.com"  # Enter your address
+    sender_password = "ksfl syii rbzg ayva"
+    
+    subject = "Your verification code"
+    body = f"Your verification code is: {verification_code}"
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = recipient_email
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, recipient_email, msg.as_string())
+
+@app.post("/start-verification/")
+async def start_verification(email: str):
+    code = generate_verification_code()
+    verification_codes[email] = code
+    send_email(email, code)
+    return {"message": "Verification code sent to the provided email."}
+
+@app.post("/verify-email/")
+async def verify_email(email: str, code: str):
+    expected_code = verification_codes.get(email)
+    if not expected_code:
+        raise HTTPException(status_code=404, detail="Email not found.")
+    
+    if expected_code == code:
+        # You can add more logic here, like activating the user's account.
+        return {"message": "Verification successful!"}
+    else:
+        return {"message": "Incorrect verification code."}
+
 # Main server
 @app.post("/create_user/")
 async def createUser(userData: dict):
@@ -50,10 +92,10 @@ async def createUser(userData: dict):
             raise HTTPException(status_code=400, detail=f"Key {key} is missing")
 
     encryptedEmail = encryptString(userData.get("email"), "ascii_maps/ascii_mapping.json")
+    
+    salt = generate_salt()
 
-    password = encryptString(userData.get("password"), "ascii_maps/ascii_mapping.json")
-    password = hash(password)
-    password = encryptString(password, "ascii_maps/ascii_mapping2.json")
+    password  = encryptPassword(userData.get("password"), salt)
 
     keyPair = generateKeyPair()
     keyPair = convertKeyPairToStr(keyPair)
@@ -61,7 +103,7 @@ async def createUser(userData: dict):
     privateKey = base64.b64encode(keyPair.get("str_private_key"))
     publicKey = base64.b64encode(keyPair.get("str_public_key"))
 
-    addUser(createConnection(), userData.get("name"), encryptedEmail, password, privateKey, publicKey)
+    addUser(createConnection(), userData.get("name"), encryptedEmail, password, privateKey, publicKey, salt)
 
     return {"message": "User successfully created", "user": userData}
 
@@ -93,13 +135,11 @@ def validate_user(userData: dict):
         if key not in userData:
             raise HTTPException(status_code=400, detail=f"Key {key} is missing")
     
+    
+    user = getUserByAttribute(createConnection(), "email", encryptedEmail)
     encryptedEmail = encryptString(userData.get("email"), "ascii_maps/ascii_mapping.json")
 
-    password = encryptString(userData.get("password"), "ascii_maps/ascii_mapping.json")
-    password = hash(password)
-    password = encryptString(password, "ascii_maps/ascii_mapping2.json")
-
-    user = getUserByAttribute(createConnection(), "email", encryptedEmail)
+    password = encryptPassword(userData.get("password"), user.get("salt"))
 
     if password == user.get("password"):
         return {"status": "success"}

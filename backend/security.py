@@ -5,6 +5,12 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from hashlib import sha256
 import json
+import base64
+import os
+
+def generate_salt(length=16):
+    """Generate a random salt of the specified length."""
+    return base64.b64encode(os.urandom(length)).decode('utf-8')
 
 def hash(string):
     return sha256(string.encode('utf-8')).hexdigest()
@@ -20,6 +26,14 @@ def encryptString(string, keyFilePath):
         encryptedString += data.get(string[i])
     
     return encryptedString
+
+def encryptPassword(string, salt):
+    password = string + salt
+    password = encryptString(password, "ascii_maps/ascii_mapping.json") 
+    password = hash(password)
+    password = encryptString(password, "ascii_maps/ascii_mapping2.json")
+
+    return password
 
 def decryptString(string, keyFilePath):
     f = open(keyFilePath)

@@ -167,13 +167,13 @@ def createConnection():
 
 # CRUD Operations for user table:
 
-def addUser(conn, name, email, password, privateKey, publicKey):
+def addUser(conn, name, email, password, privateKey, publicKey, salt):
     cursor = conn.cursor()
     query = """
-    INSERT INTO user (name, email, password, private_key, public_key)
-    VALUES (%s, %s, %s, %s, %s)
+    INSERT INTO user (name, email, password, private_key, public_key, salt)
+    VALUES (%s, %s, %s, %s, %s, %s)
     """
-    cursor.execute(query, (name, email, password, privateKey, publicKey))
+    cursor.execute(query, (name, email, password, privateKey, publicKey, salt))
     conn.commit()
     cursor.close()
 
