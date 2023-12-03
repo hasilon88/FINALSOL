@@ -25,7 +25,7 @@ const LoginPage = () => {
             const data = await response.json();
 
             if (data.status === 'success') {
-                navigate("/Dashboard", { state: { email, password } }); // Use the navigate function here
+                navigate("/Dashboard", { state: { email, password } });
             } else {
                 alert(data.message);
             }
